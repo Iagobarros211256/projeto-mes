@@ -4,13 +4,17 @@ import com.biscoitos.manutencao.common.exception.DuplicidadeException;
 import com.biscoitos.manutencao.common.exception.EntidadeNaoEncontradaException;
 import com.biscoitos.manutencao.core.domain.Equipamento;
 import com.biscoitos.manutencao.core.domain.LinhaProducao;
+import com.biscoitos.manutencao.core.domain.StatusEquipamento;
 import com.biscoitos.manutencao.core.repository.EquipamentoRepository;
 import com.biscoitos.manutencao.core.repository.LinhaProducaoRepository;
 import com.biscoitos.manutencao.core.web.dto.EquipamentoRequest;
+import com.biscoitos.manutencao.core.web.dto.EquipamentoUpdateRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -39,5 +43,36 @@ public class EquipamentoService {
 
     public List<Equipamento> listar() {
         return equipamentoRepository.findAllComLinhaProducao();
+    }
+
+    @Transactional
+    public Equipamento atualizar(UUID id, EquipamentoUpdateRequest request) {
+        Equipamento equipamento = equipamentoRepository.findByIdComLinhaProducao(id)
+                .orElseThrow(() -> new EntidadeNaoEncontradaException("Equipamento", id));
+
+        LinhaProducao linha = linhaProducaoRepository.findById(request.linhaProducaoId())
+                .orElseThrow(() -> new EntidadeNaoEncontradaException("Linha de produção", request.linhaProducaoId()));
+
+        equipamento.setNome(request.nome());
+        equipamento.setSetor(request.setor());
+        equipamento.setLinhaProducao(linha);
+
+        return equipamentoRepository.save(equipamento);
+    }
+
+    @Transactional
+    public Equipamento inativar(UUID id) {
+        Equipamento equipamento = equipamentoRepository.findByIdComLinhaProducao(id)
+                .orElseThrow(() -> new EntidadeNaoEncontradaException("Equipamento", id));
+        equipamento.setStatus(StatusEquipamento.INATIVO);
+        return equipamentoRepository.save(equipamento);
+    }
+
+    @Transactional
+    public Equipamento ativar(UUID id) {
+        Equipamento equipamento = equipamentoRepository.findByIdComLinhaProducao(id)
+                .orElseThrow(() -> new EntidadeNaoEncontradaException("Equipamento", id));
+        equipamento.setStatus(StatusEquipamento.ATIVO);
+        return equipamentoRepository.save(equipamento);
     }
 }

@@ -10,12 +10,15 @@ import com.biscoitos.manutencao.paradas.domain.Parada;
 import com.biscoitos.manutencao.paradas.domain.StatusParada;
 import com.biscoitos.manutencao.paradas.repository.MotivoParadaRepository;
 import com.biscoitos.manutencao.paradas.repository.ParadaRepository;
+import com.biscoitos.manutencao.paradas.repository.ParadaSpecifications;
 import com.biscoitos.manutencao.paradas.service.exception.IntervaloInvalidoException;
 import com.biscoitos.manutencao.paradas.service.exception.ParadaEmAbertoException;
 import com.biscoitos.manutencao.paradas.service.exception.ParadaJaEncerradaException;
 import com.biscoitos.manutencao.paradas.web.dto.AbrirParadaRequest;
 import com.biscoitos.manutencao.paradas.web.dto.EncerrarParadaRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -93,8 +96,11 @@ public class ParadaService {
         return paradaRepository.save(parada);
     }
 
-    public List<Parada> listar() {
-        return paradaRepository.findAllComRelacionamentos();
+    public List<Parada> listarComFiltros(UUID equipamentoId, UUID motivoId, UUID responsavelId,
+                                          Instant dataInicio, Instant dataFim) {
+        Specification<Parada> spec = ParadaSpecifications.comFiltros(
+                equipamentoId, motivoId, responsavelId, dataInicio, dataFim);
+        return paradaRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "dataHoraInicio"));
     }
 
     public Parada buscarPorId(UUID id) {

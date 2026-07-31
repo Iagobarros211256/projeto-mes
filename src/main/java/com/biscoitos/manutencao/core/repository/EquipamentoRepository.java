@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface EquipamentoRepository extends JpaRepository<Equipamento, UUID> {
@@ -18,4 +19,7 @@ public interface EquipamentoRepository extends JpaRepository<Equipamento, UUID> 
      */
     @Query("SELECT e FROM Equipamento e JOIN FETCH e.linhaProducao")
     List<Equipamento> findAllComLinhaProducao();
+
+    @Query("SELECT e FROM Equipamento e JOIN FETCH e.linhaProducao WHERE e.id = :id")
+    Optional<Equipamento> findByIdComLinhaProducao(UUID id);
 }
