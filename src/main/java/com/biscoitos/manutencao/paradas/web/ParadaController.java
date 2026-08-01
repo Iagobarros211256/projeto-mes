@@ -5,6 +5,7 @@ import com.biscoitos.manutencao.core.security.UsuarioLogadoResolver;
 import com.biscoitos.manutencao.paradas.domain.Parada;
 import com.biscoitos.manutencao.paradas.service.ParadaService;
 import com.biscoitos.manutencao.paradas.web.dto.AbrirParadaRequest;
+import com.biscoitos.manutencao.paradas.web.dto.EditarParadaRequest;
 import com.biscoitos.manutencao.paradas.web.dto.EncerrarParadaRequest;
 import com.biscoitos.manutencao.paradas.web.dto.ParadaResponse;
 import jakarta.validation.Valid;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -27,8 +29,10 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * RN04: apenas OPERADOR, TECNICO e SUPERVISOR podem escrever (abrir/encerrar).
- * GESTOR e GERENTE têm acesso somente aos GETs (leitura).
+ * RN04: apenas OPERADOR, TECNICO e SUPERVISOR podem registrar paradas (abrir/encerrar).
+ * GESTOR corrige apontamentos já registrados (US09) — permissão de escrita diferente,
+ * porque é uma ação diferente (correção de dado, não registro do evento original).
+ * GERENTE segue com acesso somente aos GETs (leitura).
  */
 @RestController
 @RequestMapping("/api/paradas")
@@ -51,6 +55,19 @@ public class ParadaController {
     @PreAuthorize("hasAnyRole('OPERADOR', 'TECNICO', 'SUPERVISOR')")
     public ParadaResponse encerrar(@PathVariable UUID id, @RequestBody EncerrarParadaRequest request) {
         Parada parada = paradaService.encerrarParada(id, request);
+        return ParadaResponse.from(parada);
+    }
+
+    /**
+     * US09 — corrige motivo/observações/datas de uma parada já registrada.
+     * Toda edição grava um log de auditoria (RNF03): quem, quando, o quê.
+     */
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('GESTOR')")
+    public ParadaResponse editar(@PathVariable UUID id, @Valid @RequestBody EditarParadaRequest request,
+                                  Authentication authentication) {
+        Usuario usuario = usuarioLogadoResolver.resolver(authentication);
+        Parada parada = paradaService.editarParada(id, request, usuario.getId());
         return ParadaResponse.from(parada);
     }
 
