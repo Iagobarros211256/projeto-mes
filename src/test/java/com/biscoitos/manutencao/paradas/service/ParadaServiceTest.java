@@ -10,6 +10,7 @@ import com.biscoitos.manutencao.paradas.domain.Parada;
 import com.biscoitos.manutencao.paradas.domain.StatusParada;
 import com.biscoitos.manutencao.paradas.repository.MotivoParadaRepository;
 import com.biscoitos.manutencao.paradas.repository.ParadaRepository;
+import com.biscoitos.manutencao.paradas.repository.TempoParadoPorEquipamento;
 import com.biscoitos.manutencao.paradas.service.exception.IntervaloInvalidoException;
 import com.biscoitos.manutencao.paradas.service.exception.ParadaEmAbertoException;
 import com.biscoitos.manutencao.paradas.service.exception.ParadaJaEncerradaException;
@@ -289,5 +290,37 @@ class ParadaServiceTest {
 
         assertThatThrownBy(() -> paradaService.editarParada(paradaId, request, UUID.randomUUID()))
                 .isInstanceOf(IntervaloInvalidoException.class);
+    }
+
+    @Test
+    void deveResolverSentinelasQuandoDatasSaoNulas() {
+        // US10. dataInicio=null vira Instant.EPOCH, dataFim=null vira "agora" —
+        // resolvido no Service, nunca chega null no repository (ver comentário
+        // em ParadaRepository.buscarTempoTotalParadoPorEquipamento).
+        List<TempoParadoPorEquipamento> esperado = List.of();
+        when(paradaRepository.buscarTempoTotalParadoPorEquipamento(
+                eq(StatusParada.ENCERRADA), eq(Instant.EPOCH), any(Instant.class)))
+                .thenReturn(esperado);
+
+        paradaService.tempoTotalParadoPorEquipamento(null, null);
+
+        verify(paradaRepository).buscarTempoTotalParadoPorEquipamento(
+                eq(StatusParada.ENCERRADA), eq(Instant.EPOCH), any(Instant.class));
+    }
+
+    @Test
+    void deveRepassarDatasQuandoInformadas() {
+        Instant dataInicio = Instant.parse("2026-07-01T00:00:00Z");
+        Instant dataFim = Instant.parse("2026-07-31T23:59:59Z");
+        List<TempoParadoPorEquipamento> esperado = List.of();
+
+        when(paradaRepository.buscarTempoTotalParadoPorEquipamento(StatusParada.ENCERRADA, dataInicio, dataFim))
+                .thenReturn(esperado);
+
+        List<TempoParadoPorEquipamento> resultado =
+                paradaService.tempoTotalParadoPorEquipamento(dataInicio, dataFim);
+
+        assertThat(resultado).isEqualTo(esperado);
+        verify(paradaRepository).buscarTempoTotalParadoPorEquipamento(StatusParada.ENCERRADA, dataInicio, dataFim);
     }
 }

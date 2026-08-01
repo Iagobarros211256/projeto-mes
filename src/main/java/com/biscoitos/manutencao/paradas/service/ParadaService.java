@@ -12,6 +12,7 @@ import com.biscoitos.manutencao.paradas.domain.StatusParada;
 import com.biscoitos.manutencao.paradas.repository.MotivoParadaRepository;
 import com.biscoitos.manutencao.paradas.repository.ParadaRepository;
 import com.biscoitos.manutencao.paradas.repository.ParadaSpecifications;
+import com.biscoitos.manutencao.paradas.repository.TempoParadoPorEquipamento;
 import com.biscoitos.manutencao.paradas.service.exception.IntervaloInvalidoException;
 import com.biscoitos.manutencao.paradas.service.exception.ParadaEmAbertoException;
 import com.biscoitos.manutencao.paradas.service.exception.ParadaJaEncerradaException;
@@ -151,6 +152,18 @@ public class ParadaService {
         Specification<Parada> spec = ParadaSpecifications.comFiltros(
                 equipamentoId, motivoId, responsavelId, dataInicio, dataFim);
         return paradaRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "dataHoraInicio"));
+    }
+
+    /**
+     * US10 (RF07). dataInicio/dataFim nulos viram "sem limite inferior" / "até agora" —
+     * resolvidos AQUI, antes de chamar o repository, exatamente pra nunca passar um
+     * parâmetro de data nulo pro JPQL (ver o porquê no comentário do repository).
+     */
+    public List<TempoParadoPorEquipamento> tempoTotalParadoPorEquipamento(Instant dataInicio, Instant dataFim) {
+        Instant inicioEfetivo = dataInicio != null ? dataInicio : Instant.EPOCH;
+        Instant fimEfetivo = dataFim != null ? dataFim : Instant.now();
+        return paradaRepository.buscarTempoTotalParadoPorEquipamento(
+                StatusParada.ENCERRADA, inicioEfetivo, fimEfetivo);
     }
 
     public Parada buscarPorId(UUID id) {
