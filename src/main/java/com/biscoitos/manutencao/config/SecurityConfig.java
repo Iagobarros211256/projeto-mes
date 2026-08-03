@@ -32,6 +32,12 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
+                        // T04: handshake do SockJS/STOMP fica sem autenticação HTTP por ora.
+                        // Autenticar WebSocket de verdade exigiria um ChannelInterceptor lendo
+                        // credenciais do frame STOMP CONNECT (mecanismo diferente do HTTP Basic
+                        // usado no resto da API) — fora de escopo deste MVP, registrado como
+                        // débito técnico consciente pra Fase 2+.
+                        .requestMatchers("/ws/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .httpBasic(Customizer.withDefaults());
