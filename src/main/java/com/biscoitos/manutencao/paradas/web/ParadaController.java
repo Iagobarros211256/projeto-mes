@@ -8,6 +8,7 @@ import com.biscoitos.manutencao.paradas.web.dto.AbrirParadaRequest;
 import com.biscoitos.manutencao.paradas.web.dto.EditarParadaRequest;
 import com.biscoitos.manutencao.paradas.web.dto.EncerrarParadaRequest;
 import com.biscoitos.manutencao.paradas.web.dto.ParadaResponse;
+import com.biscoitos.manutencao.paradas.web.dto.TempoParadoResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -86,6 +87,23 @@ public class ParadaController {
     ) {
         return paradaService.listarComFiltros(equipamentoId, motivoId, responsavelId, dataInicio, dataFim)
                 .stream().map(ParadaResponse::from).toList();
+    }
+
+    /**
+     * US10 (RF07) — tempo total parado por equipamento, no período informado.
+     * Sem dataInicio/dataFim, considera todo o histórico até agora.
+     * Precisa vir ANTES de /{id} no arquivo por clareza de leitura — o Spring já resolve
+     * "/tempo-parado" antes de "/{id}" por especificidade de qualquer forma (rota literal
+     * sempre ganha de rota com variável), mas deixar na ordem "mais específico primeiro"
+     * evita a dúvida de quem for ler o código depois.
+     */
+    @GetMapping("/tempo-parado")
+    public List<TempoParadoResponse> tempoParadoPorEquipamento(
+            @RequestParam(required = false) Instant dataInicio,
+            @RequestParam(required = false) Instant dataFim
+    ) {
+        return paradaService.tempoTotalParadoPorEquipamento(dataInicio, dataFim)
+                .stream().map(TempoParadoResponse::from).toList();
     }
 
     @GetMapping("/{id}")
