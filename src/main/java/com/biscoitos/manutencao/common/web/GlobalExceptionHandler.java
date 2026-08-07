@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.List;
 
@@ -41,5 +42,16 @@ public class GlobalExceptionHandler {
                 .toList();
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ErrorResponse.of(400, "Requisição inválida", "Um ou mais campos são inválidos", detalhes));
+    }
+
+    /**
+     * Cobre, por exemplo, ?equipamentoId=abc (não é UUID) ou ?dataInicio=ontem (não é ISO-8601)
+     * nos filtros da US08. Sem isso, o Spring devolveria um 500 genérico em vez de um 400 claro.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleTipoInvalido(MethodArgumentTypeMismatchException ex) {
+        String mensagem = "Parâmetro '" + ex.getName() + "' com valor inválido: '" + ex.getValue() + "'";
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse.of(400, "Requisição inválida", mensagem));
     }
 }

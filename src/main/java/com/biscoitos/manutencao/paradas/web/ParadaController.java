@@ -19,8 +19,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -52,9 +54,21 @@ public class ParadaController {
         return ParadaResponse.from(parada);
     }
 
+    /**
+     * US08 — todos os filtros são opcionais; sem nenhum, devolve o histórico inteiro
+     * (ordenado por data de início, mais recente primeiro).
+     * Datas seguem ISO-8601, ex.: ?dataInicio=2026-07-01T00:00:00Z
+     */
     @GetMapping
-    public List<ParadaResponse> listar() {
-        return paradaService.listar().stream().map(ParadaResponse::from).toList();
+    public List<ParadaResponse> listar(
+            @RequestParam(required = false) UUID equipamentoId,
+            @RequestParam(required = false) UUID motivoId,
+            @RequestParam(required = false) UUID responsavelId,
+            @RequestParam(required = false) Instant dataInicio,
+            @RequestParam(required = false) Instant dataFim
+    ) {
+        return paradaService.listarComFiltros(equipamentoId, motivoId, responsavelId, dataInicio, dataFim)
+                .stream().map(ParadaResponse::from).toList();
     }
 
     @GetMapping("/{id}")

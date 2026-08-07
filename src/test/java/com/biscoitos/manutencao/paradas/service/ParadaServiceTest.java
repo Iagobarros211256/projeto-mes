@@ -20,15 +20,20 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -163,5 +168,40 @@ class ParadaServiceTest {
 
         assertThatThrownBy(() -> paradaService.abrirParada(request, UUID.randomUUID()))
                 .isInstanceOf(EntidadeNaoEncontradaException.class);
+    }
+
+    @Test
+    void deveDelegarFiltrosParaORepositoryComOrdenacaoPorInicio() {
+        // US08. Este teste garante que o Service chama findAll com uma Specification
+        // e a ordenação certa — não valida o CONTEÚDO do filtro em si, porque Mockito não
+        // executa a query de verdade. A lógica real do filtro (Criteria/SQL) só um teste
+        // de integração contra Postgres real valida, que é o T05, ainda no backlog.
+        Sort ordenacaoEsperada = Sort.by(Sort.Direction.DESC, "dataHoraInicio");
+        List<Parada> esperado = List.of(Parada.builder().id(UUID.randomUUID()).build());
+
+        when(paradaRepository.findAll(any(Specification.class), eq(ordenacaoEsperada)))
+                .thenReturn(esperado);
+
+        List<Parada> resultado = paradaService.listarComFiltros(
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                Instant.parse("2026-07-01T00:00:00Z"), Instant.parse("2026-07-31T23:59:59Z"));
+
+        assertThat(resultado).isEqualTo(esperado);
+        verify(paradaRepository).findAll(any(Specification.class), eq(ordenacaoEsperada));
+    }
+
+    @Test
+    void deveAceitarTodosOsFiltrosNulos() {
+        // Sem filtro nenhum = listar tudo. Mesmo caminho de código do teste acima —
+        // existe como teste separado só para documentar que "tudo nulo" é um caso
+        // de uso válido e esperado (equivalente a "sem filtro"), não um erro.
+        Sort ordenacaoEsperada = Sort.by(Sort.Direction.DESC, "dataHoraInicio");
+        when(paradaRepository.findAll(any(Specification.class), eq(ordenacaoEsperada)))
+                .thenReturn(List.of());
+
+        List<Parada> resultado = paradaService.listarComFiltros(null, null, null, null, null);
+
+        assertThat(resultado).isEmpty();
+        verify(paradaRepository).findAll(any(Specification.class), eq(ordenacaoEsperada));
     }
 }
