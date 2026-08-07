@@ -14,6 +14,7 @@ import com.biscoitos.manutencao.paradas.service.exception.IntervaloInvalidoExcep
 import com.biscoitos.manutencao.paradas.service.exception.ParadaEmAbertoException;
 import com.biscoitos.manutencao.paradas.service.exception.ParadaJaEncerradaException;
 import com.biscoitos.manutencao.paradas.web.dto.AbrirParadaRequest;
+import com.biscoitos.manutencao.paradas.web.dto.EditarParadaRequest;
 import com.biscoitos.manutencao.paradas.web.dto.EncerrarParadaRequest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -52,6 +53,8 @@ class ParadaServiceTest {
     private MotivoParadaRepository motivoParadaRepository;
     @Mock
     private UsuarioRepository usuarioRepository;
+    @Mock
+    private com.biscoitos.manutencao.core.service.AuditoriaService auditoriaService;
 
     @InjectMocks
     private ParadaService paradaService;
@@ -203,5 +206,88 @@ class ParadaServiceTest {
 
         assertThat(resultado).isEmpty();
         verify(paradaRepository).findAll(any(Specification.class), eq(ordenacaoEsperada));
+    }
+
+    @Test
+    void deveEditarParadaEGravarLogDeAuditoria() {
+        // US09
+        UUID paradaId = UUID.randomUUID();
+        UUID novoMotivoId = UUID.randomUUID();
+        UUID usuarioId = UUID.randomUUID();
+        Instant inicioOriginal = Instant.parse("2026-07-20T10:00:00Z");
+        Instant fimOriginal = Instant.parse("2026-07-20T10:30:00Z");
+
+        Parada existente = Parada.builder()
+                .id(paradaId)
+                .dataHoraInicio(inicioOriginal)
+                .dataHoraFim(fimOriginal)
+                .duracaoMinutos(30L)
+                .status(StatusParada.ENCERRADA)
+                .build();
+
+        MotivoParada novoMotivo = MotivoParada.builder().id(novoMotivoId).categoria("Elétrica").build();
+
+        when(paradaRepository.buscarComRelacionamentosPorId(paradaId)).thenReturn(Optional.of(existente));
+        when(motivoParadaRepository.findById(novoMotivoId)).thenReturn(Optional.of(novoMotivo));
+        when(paradaRepository.save(any(Parada.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        EditarParadaRequest request = new EditarParadaRequest(novoMotivoId, "corrigido", inicioOriginal, null);
+
+        Parada editada = paradaService.editarParada(paradaId, request, usuarioId);
+
+        assertThat(editada.getMotivo().getId()).isEqualTo(novoMotivoId);
+        assertThat(editada.getObservacoes()).isEqualTo("corrigido");
+        // dataHoraFim não veio na requisição -> preserva o valor original, não zera.
+        assertThat(editada.getDataHoraFim()).isEqualTo(fimOriginal);
+        verify(auditoriaService).registrar("parada", paradaId, usuarioId, "UPDATE");
+    }
+
+    @Test
+    void deveRecusarEditarComDataHoraFimAnteriorAoInicio() {
+        // Parada já ENCERRADA sendo corrigida com um novo dataHoraInicio que
+        // "ultrapassa" o dataHoraFim já registrado — RN01 continua valendo na edição.
+        UUID paradaId = UUID.randomUUID();
+        UUID motivoId = UUID.randomUUID();
+        Instant inicioOriginal = Instant.parse("2026-07-20T10:00:00Z");
+        Instant fimOriginal = inicioOriginal.plusSeconds(600);
+
+        Parada encerrada = Parada.builder()
+                .id(paradaId)
+                .dataHoraInicio(inicioOriginal)
+                .dataHoraFim(fimOriginal)
+                .status(StatusParada.ENCERRADA)
+                .build();
+
+        when(paradaRepository.buscarComRelacionamentosPorId(paradaId)).thenReturn(Optional.of(encerrada));
+        when(motivoParadaRepository.findById(motivoId))
+                .thenReturn(Optional.of(MotivoParada.builder().id(motivoId).build()));
+
+        Instant novoInicioInvalido = fimOriginal.plusSeconds(3600); // depois do fim já registrado
+        EditarParadaRequest request = new EditarParadaRequest(motivoId, null, novoInicioInvalido, null);
+
+        assertThatThrownBy(() -> paradaService.editarParada(paradaId, request, UUID.randomUUID()))
+                .isInstanceOf(IntervaloInvalidoException.class);
+    }
+
+    @Test
+    void deveRecusarDefinirDataHoraFimEmParadaAberta() {
+        UUID paradaId = UUID.randomUUID();
+        UUID motivoId = UUID.randomUUID();
+        Instant inicio = Instant.parse("2026-07-20T10:00:00Z");
+
+        Parada aberta = Parada.builder()
+                .id(paradaId)
+                .dataHoraInicio(inicio)
+                .status(StatusParada.ABERTA)
+                .build();
+
+        when(paradaRepository.buscarComRelacionamentosPorId(paradaId)).thenReturn(Optional.of(aberta));
+        when(motivoParadaRepository.findById(motivoId))
+                .thenReturn(Optional.of(MotivoParada.builder().id(motivoId).build()));
+
+        EditarParadaRequest request = new EditarParadaRequest(motivoId, null, inicio, inicio.plusSeconds(600));
+
+        assertThatThrownBy(() -> paradaService.editarParada(paradaId, request, UUID.randomUUID()))
+                .isInstanceOf(IntervaloInvalidoException.class);
     }
 }

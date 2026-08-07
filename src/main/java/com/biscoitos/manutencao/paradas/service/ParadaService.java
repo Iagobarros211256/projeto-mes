@@ -5,6 +5,7 @@ import com.biscoitos.manutencao.core.domain.Equipamento;
 import com.biscoitos.manutencao.core.domain.Usuario;
 import com.biscoitos.manutencao.core.repository.EquipamentoRepository;
 import com.biscoitos.manutencao.core.repository.UsuarioRepository;
+import com.biscoitos.manutencao.core.service.AuditoriaService;
 import com.biscoitos.manutencao.paradas.domain.MotivoParada;
 import com.biscoitos.manutencao.paradas.domain.Parada;
 import com.biscoitos.manutencao.paradas.domain.StatusParada;
@@ -15,6 +16,7 @@ import com.biscoitos.manutencao.paradas.service.exception.IntervaloInvalidoExcep
 import com.biscoitos.manutencao.paradas.service.exception.ParadaEmAbertoException;
 import com.biscoitos.manutencao.paradas.service.exception.ParadaJaEncerradaException;
 import com.biscoitos.manutencao.paradas.web.dto.AbrirParadaRequest;
+import com.biscoitos.manutencao.paradas.web.dto.EditarParadaRequest;
 import com.biscoitos.manutencao.paradas.web.dto.EncerrarParadaRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
@@ -31,10 +33,13 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ParadaService {
 
+    private static final String ENTIDADE_AUDITORIA = "parada";
+
     private final ParadaRepository paradaRepository;
     private final EquipamentoRepository equipamentoRepository;
     private final MotivoParadaRepository motivoParadaRepository;
     private final UsuarioRepository usuarioRepository;
+    private final AuditoriaService auditoriaService;
 
     @Transactional
     public Parada abrirParada(AbrirParadaRequest request, UUID responsavelId) {
@@ -94,6 +99,51 @@ public class ParadaService {
         parada.setStatus(StatusParada.ENCERRADA);
 
         return paradaRepository.save(parada);
+    }
+
+    /**
+     * US09. RF06 + RNF03: corrige um apontamento já registrado, sempre gravando um
+     * log de auditoria (quem, quando, o quê) — primeira vez que log_auditoria é
+     * realmente usada (a tabela existe desde o Sprint 1, V1).
+     */
+    @Transactional
+    public Parada editarParada(UUID paradaId, EditarParadaRequest request, UUID usuarioId) {
+        Parada parada = paradaRepository.buscarComRelacionamentosPorId(paradaId)
+                .orElseThrow(() -> new EntidadeNaoEncontradaException("Parada", paradaId));
+
+        MotivoParada motivo = motivoParadaRepository.findById(request.motivoId())
+                .orElseThrow(() -> new EntidadeNaoEncontradaException("Motivo de parada", request.motivoId()));
+
+        if (request.dataHoraFim() != null && parada.getStatus() == StatusParada.ABERTA) {
+            throw new IntervaloInvalidoException(
+                    "Não é possível definir data_hora_fim em uma parada ainda ABERTA; "
+                            + "use PATCH /api/paradas/{id}/encerrar para isso"
+            );
+        }
+
+        Instant novoInicio = request.dataHoraInicio();
+        // Se dataHoraFim não veio na requisição, preserva o valor que já existia
+        // (evita apagar um fim já registrado só porque o campo não foi reenviado).
+        Instant novoFim = request.dataHoraFim() != null ? request.dataHoraFim() : parada.getDataHoraFim();
+
+        // RN01 continua valendo numa correção, não só na abertura/encerramento original.
+        if (novoFim != null && novoFim.isBefore(novoInicio)) {
+            throw new IntervaloInvalidoException(
+                    "data_hora_fim (" + novoFim + ") não pode ser anterior a data_hora_inicio (" + novoInicio + ")"
+            );
+        }
+
+        parada.setMotivo(motivo);
+        parada.setObservacoes(request.observacoes());
+        parada.setDataHoraInicio(novoInicio);
+        if (novoFim != null) {
+            parada.setDataHoraFim(novoFim);
+            parada.setDuracaoMinutos(Duration.between(novoInicio, novoFim).toMinutes());
+        }
+
+        Parada salva = paradaRepository.save(parada);
+        auditoriaService.registrar(ENTIDADE_AUDITORIA, salva.getId(), usuarioId, "UPDATE");
+        return salva;
     }
 
     public List<Parada> listarComFiltros(UUID equipamentoId, UUID motivoId, UUID responsavelId,
