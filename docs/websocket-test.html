@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Teste WebSocket — Paradas em tempo real</title>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #d4d4d4; }
+        #status { padding: 8px; margin-bottom: 16px; border-radius: 4px; }
+        .conectado { background: #1e4620; color: #4caf50; }
+        .desconectado { background: #4a1e1e; color: #f44336; }
+        .evento { border-left: 3px solid #569cd6; padding: 8px 12px; margin-bottom: 8px; background: #252526; }
+        .evento.ABERTA { border-color: #f4b942; }
+        .evento.ENCERRADA { border-color: #4caf50; }
+        pre { margin: 4px 0 0; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h2>Teste manual — /topic/paradas (T04)</h2>
+    <div id="status" class="desconectado">desconectado</div>
+    <div id="eventos"></div>
+
+    <script>
+        const statusEl = document.getElementById('status');
+        const eventosEl = document.getElementById('eventos');
+
+        const socket = new SockJS('http://localhost:8080/ws');
+        const client = new StompJs.Client({
+            webSocketFactory: () => socket,
+            debug: (msg) => console.log(msg),
+        });
+
+        client.onConnect = () => {
+            statusEl.textContent = 'conectado';
+            statusEl.className = 'conectado';
+
+            client.subscribe('/topic/paradas', (message) => {
+                const evento = JSON.parse(message.body);
+                const div = document.createElement('div');
+                div.className = 'evento ' + evento.tipoEvento;
+                div.innerHTML = `<strong>${evento.tipoEvento}</strong> — ${evento.parada.equipamentoNome}
+                    <pre>${JSON.stringify(evento, null, 2)}</pre>`;
+                eventosEl.prepend(div);
+            });
+        };
+
+        client.onDisconnect = () => {
+            statusEl.textContent = 'desconectado';
+            statusEl.className = 'desconectado';
+        };
+
+        client.activate();
+    </script>
+</body>
+</html>

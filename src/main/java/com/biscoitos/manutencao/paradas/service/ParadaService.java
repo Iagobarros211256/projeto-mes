@@ -9,6 +9,7 @@ import com.biscoitos.manutencao.core.service.AuditoriaService;
 import com.biscoitos.manutencao.paradas.domain.MotivoParada;
 import com.biscoitos.manutencao.paradas.domain.Parada;
 import com.biscoitos.manutencao.paradas.domain.StatusParada;
+import com.biscoitos.manutencao.paradas.event.ParadaEventoTempoReal;
 import com.biscoitos.manutencao.paradas.repository.MotivoParadaRepository;
 import com.biscoitos.manutencao.paradas.repository.ParadaRepository;
 import com.biscoitos.manutencao.paradas.repository.ParadaSpecifications;
@@ -19,7 +20,9 @@ import com.biscoitos.manutencao.paradas.service.exception.ParadaJaEncerradaExcep
 import com.biscoitos.manutencao.paradas.web.dto.AbrirParadaRequest;
 import com.biscoitos.manutencao.paradas.web.dto.EditarParadaRequest;
 import com.biscoitos.manutencao.paradas.web.dto.EncerrarParadaRequest;
+import com.biscoitos.manutencao.paradas.web.dto.ParadaResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -41,6 +44,7 @@ public class ParadaService {
     private final MotivoParadaRepository motivoParadaRepository;
     private final UsuarioRepository usuarioRepository;
     private final AuditoriaService auditoriaService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public Parada abrirParada(AbrirParadaRequest request, UUID responsavelId) {
@@ -70,7 +74,11 @@ public class ParadaService {
                 .status(StatusParada.ABERTA)
                 .build();
 
-        return paradaRepository.save(parada);
+        Parada salva = paradaRepository.save(parada);
+        // ParadaResponse montado AQUI, ainda dentro da transação — ver justificativa
+        // detalhada no comentário de ParadaEventoTempoReal.
+        eventPublisher.publishEvent(ParadaEventoTempoReal.aberta(ParadaResponse.from(salva)));
+        return salva;
     }
 
     @Transactional
@@ -99,7 +107,9 @@ public class ParadaService {
         parada.setDuracaoMinutos(duracaoMinutos);
         parada.setStatus(StatusParada.ENCERRADA);
 
-        return paradaRepository.save(parada);
+        Parada salva = paradaRepository.save(parada);
+        eventPublisher.publishEvent(ParadaEventoTempoReal.encerrada(ParadaResponse.from(salva)));
+        return salva;
     }
 
     /**

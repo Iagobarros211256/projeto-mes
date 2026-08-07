@@ -56,6 +56,8 @@ class ParadaServiceTest {
     private UsuarioRepository usuarioRepository;
     @Mock
     private com.biscoitos.manutencao.core.service.AuditoriaService auditoriaService;
+    @Mock
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private ParadaService paradaService;
@@ -105,6 +107,10 @@ class ParadaServiceTest {
         assertThat(parada.getStatus()).isEqualTo(StatusParada.ABERTA);
         assertThat(parada.getDataHoraInicio()).isNotNull();
         assertThat(parada.getObservacoes()).isEqualTo("Ruído na esteira");
+        // T04 — confirma que o evento de tempo real foi publicado (o envio de fato pro
+        // STOMP é responsabilidade do ParadaEventoListener, testado à parte se necessário;
+        // aqui só garantimos que o Service publica o evento certo no momento certo).
+        verify(eventPublisher).publishEvent(any(com.biscoitos.manutencao.paradas.event.ParadaEventoTempoReal.class));
     }
 
     @Test
@@ -137,6 +143,11 @@ class ParadaServiceTest {
                 .id(paradaId)
                 .dataHoraInicio(inicio)
                 .status(StatusParada.ABERTA)
+                // Necessário desde o T04: encerrarParada monta um ParadaResponse
+                // internamente (pro evento de tempo real), que acessa esses três campos.
+                .equipamento(Equipamento.builder().id(UUID.randomUUID()).nome("Equip. Teste").build())
+                .motivo(MotivoParada.builder().id(UUID.randomUUID()).categoria("Mecânica").build())
+                .responsavel(Usuario.builder().id(UUID.randomUUID()).nome("Usuário Teste").build())
                 .build();
 
         when(paradaRepository.buscarComRelacionamentosPorId(paradaId)).thenReturn(Optional.of(parada));
@@ -146,6 +157,7 @@ class ParadaServiceTest {
 
         assertThat(encerrada.getStatus()).isEqualTo(StatusParada.ENCERRADA);
         assertThat(encerrada.getDuracaoMinutos()).isEqualTo(45L);
+        verify(eventPublisher).publishEvent(any(com.biscoitos.manutencao.paradas.event.ParadaEventoTempoReal.class));
     }
 
     @Test
