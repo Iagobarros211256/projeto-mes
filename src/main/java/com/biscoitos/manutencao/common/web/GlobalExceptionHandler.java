@@ -1,7 +1,11 @@
 package com.biscoitos.manutencao.common.web;
 
+import com.biscoitos.manutencao.common.exception.DadosInvalidosException;
 import com.biscoitos.manutencao.common.exception.DuplicidadeException;
 import com.biscoitos.manutencao.common.exception.EntidadeNaoEncontradaException;
+import com.biscoitos.manutencao.ordemservico.service.exception.OrdemServicoEmEstadoTerminalException;
+import com.biscoitos.manutencao.ordemservico.service.exception.OrdemServicoNaoEmAndamentoException;
+import com.biscoitos.manutencao.ordemservico.service.exception.TecnicoNaoAtribuidoException;
 import com.biscoitos.manutencao.paradas.service.exception.IntervaloInvalidoException;
 import com.biscoitos.manutencao.paradas.service.exception.ParadaEmAbertoException;
 import com.biscoitos.manutencao.paradas.service.exception.ParadaJaEncerradaException;
@@ -23,14 +27,23 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(404, "Não encontrado", ex.getMessage()));
     }
 
-    @ExceptionHandler({ParadaEmAbertoException.class, DuplicidadeException.class, ParadaJaEncerradaException.class})
+    @ExceptionHandler({
+            ParadaEmAbertoException.class,
+            DuplicidadeException.class,
+            ParadaJaEncerradaException.class,
+            // Sprint 3 — todas são "ação inválida pro estado atual da OS" (RN05-RN07),
+            // mesma categoria semântica das exceptions de Parada acima.
+            TecnicoNaoAtribuidoException.class,
+            OrdemServicoNaoEmAndamentoException.class,
+            OrdemServicoEmEstadoTerminalException.class
+    })
     public ResponseEntity<ErrorResponse> handleConflito(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ErrorResponse.of(409, "Conflito", ex.getMessage()));
     }
 
-    @ExceptionHandler(IntervaloInvalidoException.class)
-    public ResponseEntity<ErrorResponse> handleIntervaloInvalido(IntervaloInvalidoException ex) {
+    @ExceptionHandler({IntervaloInvalidoException.class, DadosInvalidosException.class})
+    public ResponseEntity<ErrorResponse> handleRequisicaoInvalida(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ErrorResponse.of(400, "Requisição inválida", ex.getMessage()));
     }
@@ -46,7 +59,7 @@ public class GlobalExceptionHandler {
 
     /**
      * Cobre, por exemplo, ?equipamentoId=abc (não é UUID) ou ?dataInicio=ontem (não é ISO-8601)
-     * nos filtros da US08. Sem isso, o Spring devolveria um 500 genérico em vez de um 400 claro.
+     * nos filtros da US08/US16. Sem isso, o Spring devolveria um 500 genérico em vez de um 400 claro.
      */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponse> handleTipoInvalido(MethodArgumentTypeMismatchException ex) {
