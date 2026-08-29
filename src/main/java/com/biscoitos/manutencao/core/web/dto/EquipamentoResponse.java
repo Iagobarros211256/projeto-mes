@@ -11,7 +11,8 @@ public record EquipamentoResponse(
         String setor,
         String status,
         UUID linhaProducaoId,
-        String linhaProducaoNome
+        String linhaProducaoNome,
+        Integer horasOperacaoAcumuladas
 ) {
     public static EquipamentoResponse from(Equipamento equipamento) {
         return new EquipamentoResponse(
@@ -21,7 +22,8 @@ public record EquipamentoResponse(
                 equipamento.getSetor(),
                 equipamento.getStatus().name(),
                 equipamento.getLinhaProducao().getId(),
-                equipamento.getLinhaProducao().getNome()
+                equipamento.getLinhaProducao().getNome(),
+                equipamento.getHorasOperacaoAcumuladas()
         );
     }
 }

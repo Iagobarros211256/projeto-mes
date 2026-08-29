@@ -2,6 +2,7 @@ package com.biscoitos.manutencao.core.service;
 
 import com.biscoitos.manutencao.common.exception.DuplicidadeException;
 import com.biscoitos.manutencao.common.exception.EntidadeNaoEncontradaException;
+import com.biscoitos.manutencao.common.exception.HorometroRetrocessoException;
 import com.biscoitos.manutencao.core.domain.Equipamento;
 import com.biscoitos.manutencao.core.domain.LinhaProducao;
 import com.biscoitos.manutencao.core.domain.StatusEquipamento;
@@ -73,6 +74,24 @@ public class EquipamentoService {
         Equipamento equipamento = equipamentoRepository.findByIdComLinhaProducao(id)
                 .orElseThrow(() -> new EntidadeNaoEncontradaException("Equipamento", id));
         equipamento.setStatus(StatusEquipamento.ATIVO);
+        return equipamentoRepository.save(equipamento);
+    }
+
+    /**
+     * US18 (Preventiva). RN09 — o horômetro é cumulativo, como um odômetro: só aceita
+     * valores maiores ou iguais ao já registrado.
+     */
+    @Transactional
+    public Equipamento atualizarHorasOperacao(UUID id, int novasHoras) {
+        Equipamento equipamento = equipamentoRepository.findByIdComLinhaProducao(id)
+                .orElseThrow(() -> new EntidadeNaoEncontradaException("Equipamento", id));
+
+        int horasAtuais = equipamento.getHorasOperacaoAcumuladas();
+        if (novasHoras < horasAtuais) {
+            throw new HorometroRetrocessoException(id, horasAtuais, novasHoras);
+        }
+
+        equipamento.setHorasOperacaoAcumuladas(novasHoras);
         return equipamentoRepository.save(equipamento);
     }
 }

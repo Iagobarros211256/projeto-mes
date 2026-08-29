@@ -2,6 +2,7 @@ package com.biscoitos.manutencao.core.web;
 
 import com.biscoitos.manutencao.core.domain.Equipamento;
 import com.biscoitos.manutencao.core.service.EquipamentoService;
+import com.biscoitos.manutencao.core.web.dto.AtualizarHorasOperacaoRequest;
 import com.biscoitos.manutencao.core.web.dto.EquipamentoRequest;
 import com.biscoitos.manutencao.core.web.dto.EquipamentoResponse;
 import com.biscoitos.manutencao.core.web.dto.EquipamentoUpdateRequest;
@@ -57,5 +58,13 @@ public class EquipamentoController {
     @PreAuthorize("hasRole('GESTOR')")
     public EquipamentoResponse ativar(@PathVariable UUID id) {
         return EquipamentoResponse.from(equipamentoService.ativar(id));
+    }
+
+    /** US18 (Preventiva) — RN09 aplicada no Service. */
+    @PatchMapping("/{id}/horas-operacao")
+    @PreAuthorize("hasAnyRole('GESTOR', 'TECNICO')")
+    public EquipamentoResponse atualizarHorasOperacao(@PathVariable UUID id,
+                                                       @Valid @RequestBody AtualizarHorasOperacaoRequest request) {
+        return EquipamentoResponse.from(equipamentoService.atualizarHorasOperacao(id, request.horas()));
     }
 }
