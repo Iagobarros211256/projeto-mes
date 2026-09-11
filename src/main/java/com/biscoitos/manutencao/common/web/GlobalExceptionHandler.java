@@ -4,6 +4,7 @@ import com.biscoitos.manutencao.common.exception.DadosInvalidosException;
 import com.biscoitos.manutencao.common.exception.DuplicidadeException;
 import com.biscoitos.manutencao.common.exception.EntidadeNaoEncontradaException;
 import com.biscoitos.manutencao.common.exception.HorometroRetrocessoException;
+import com.biscoitos.manutencao.estoque.service.exception.EstoqueInsuficienteException;
 import com.biscoitos.manutencao.ordemservico.service.exception.OrdemServicoEmEstadoTerminalException;
 import com.biscoitos.manutencao.ordemservico.service.exception.OrdemServicoNaoEmAndamentoException;
 import com.biscoitos.manutencao.ordemservico.service.exception.TecnicoNaoAtribuidoException;
@@ -38,7 +39,9 @@ public class GlobalExceptionHandler {
             OrdemServicoNaoEmAndamentoException.class,
             OrdemServicoEmEstadoTerminalException.class,
             // Sprint 4 — RN09, mesma categoria: tentativa de ação inválida pro estado atual.
-            HorometroRetrocessoException.class
+            HorometroRetrocessoException.class,
+            // Sprint 5 — RN10, mesma categoria.
+            EstoqueInsuficienteException.class
     })
     public ResponseEntity<ErrorResponse> handleConflito(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
