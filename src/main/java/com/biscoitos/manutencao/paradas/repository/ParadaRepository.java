@@ -60,4 +60,69 @@ public interface ParadaRepository extends JpaRepository<Parada, UUID>, JpaSpecif
             @Param("dataInicio") Instant dataInicio,
             @Param("dataFim") Instant dataFim
     );
+
+    /**
+     * US29 (Dashboard de OEE) — soma escalar pra UM equipamento num período exato. Não
+     * usa sentinelas como a US10: o endpoint de OEE exige dataInicio/dataFim explícitos
+     * (é o próprio "tempo planejado" da fórmula), então esses parâmetros já chegam
+     * concretos por definição, nunca nulos.
+     */
+    @Query("""
+            SELECT COALESCE(SUM(p.duracaoMinutos), 0)
+            FROM Parada p
+            WHERE p.status = :status
+              AND p.equipamento.id = :equipamentoId
+              AND p.dataHoraInicio >= :dataInicio
+              AND p.dataHoraInicio <= :dataFim
+            """)
+    Long somarTempoParadoDoEquipamentoNoPeriodo(
+            @Param("status") StatusParada status,
+            @Param("equipamentoId") UUID equipamentoId,
+            @Param("dataInicio") Instant dataInicio,
+            @Param("dataFim") Instant dataFim
+    );
+
+    /**
+     * US30 — ranking de causas de parada, todos os equipamentos. dataInicio/dataFim
+     * resolvidos com sentinela no Service (mesmo padrão da US10), nunca nulos aqui.
+     */
+    @Query("""
+            SELECT p.motivo.id AS motivoId,
+                   p.motivo.categoria AS categoria,
+                   p.motivo.subcategoria AS subcategoria,
+                   COALESCE(SUM(p.duracaoMinutos), 0) AS tempoTotalMinutos
+            FROM Parada p
+            WHERE p.status = :status
+              AND p.dataHoraInicio >= :dataInicio
+              AND p.dataHoraInicio <= :dataFim
+            GROUP BY p.motivo.id, p.motivo.categoria, p.motivo.subcategoria
+            ORDER BY COALESCE(SUM(p.duracaoMinutos), 0) DESC
+            """)
+    List<TempoParadoPorMotivo> buscarTempoTotalParadoPorMotivo(
+            @Param("status") StatusParada status,
+            @Param("dataInicio") Instant dataInicio,
+            @Param("dataFim") Instant dataFim
+    );
+
+    /** US30 — mesma coisa, escopada a um equipamento. Método separado (não parâmetro
+     * opcional) pra não reintroduzir o padrão "IS NULL" que já causou problema na US08. */
+    @Query("""
+            SELECT p.motivo.id AS motivoId,
+                   p.motivo.categoria AS categoria,
+                   p.motivo.subcategoria AS subcategoria,
+                   COALESCE(SUM(p.duracaoMinutos), 0) AS tempoTotalMinutos
+            FROM Parada p
+            WHERE p.status = :status
+              AND p.equipamento.id = :equipamentoId
+              AND p.dataHoraInicio >= :dataInicio
+              AND p.dataHoraInicio <= :dataFim
+            GROUP BY p.motivo.id, p.motivo.categoria, p.motivo.subcategoria
+            ORDER BY COALESCE(SUM(p.duracaoMinutos), 0) DESC
+            """)
+    List<TempoParadoPorMotivo> buscarTempoTotalParadoPorMotivoDoEquipamento(
+            @Param("status") StatusParada status,
+            @Param("equipamentoId") UUID equipamentoId,
+            @Param("dataInicio") Instant dataInicio,
+            @Param("dataFim") Instant dataFim
+    );
 }

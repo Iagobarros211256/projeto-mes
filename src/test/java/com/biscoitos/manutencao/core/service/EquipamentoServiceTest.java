@@ -2,6 +2,7 @@ package com.biscoitos.manutencao.core.service;
 
 import com.biscoitos.manutencao.common.exception.DuplicidadeException;
 import com.biscoitos.manutencao.common.exception.EntidadeNaoEncontradaException;
+import com.biscoitos.manutencao.common.exception.HorometroRetrocessoException;
 import com.biscoitos.manutencao.core.domain.Equipamento;
 import com.biscoitos.manutencao.core.domain.LinhaProducao;
 import com.biscoitos.manutencao.core.domain.StatusEquipamento;
@@ -117,5 +118,68 @@ class EquipamentoServiceTest {
         Equipamento ativado = equipamentoService.ativar(equipamentoId);
 
         assertThat(ativado.getStatus()).isEqualTo(StatusEquipamento.ATIVO);
+    }
+
+    @Test
+    void deveAtualizarHorasDeOperacao() {
+        // US18 (Preventiva)
+        UUID equipamentoId = UUID.randomUUID();
+        Equipamento existente = Equipamento.builder()
+                .id(equipamentoId)
+                .horasOperacaoAcumuladas(100)
+                .build();
+
+        when(equipamentoRepository.findByIdComLinhaProducao(equipamentoId)).thenReturn(Optional.of(existente));
+        when(equipamentoRepository.save(any(Equipamento.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Equipamento atualizado = equipamentoService.atualizarHorasOperacao(equipamentoId, 150);
+
+        assertThat(atualizado.getHorasOperacaoAcumuladas()).isEqualTo(150);
+    }
+
+    @Test
+    void deveAceitarInformarOMesmoValorDeHoras() {
+        // Igual não é retrocesso — RN09 só bloqueia valor MENOR que o atual.
+        UUID equipamentoId = UUID.randomUUID();
+        Equipamento existente = Equipamento.builder()
+                .id(equipamentoId)
+                .horasOperacaoAcumuladas(100)
+                .build();
+
+        when(equipamentoRepository.findByIdComLinhaProducao(equipamentoId)).thenReturn(Optional.of(existente));
+        when(equipamentoRepository.save(any(Equipamento.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Equipamento atualizado = equipamentoService.atualizarHorasOperacao(equipamentoId, 100);
+
+        assertThat(atualizado.getHorasOperacaoAcumuladas()).isEqualTo(100);
+    }
+
+    @Test
+    void deveRecusarRetrocederHorasDeOperacao() {
+        // RN09
+        UUID equipamentoId = UUID.randomUUID();
+        Equipamento existente = Equipamento.builder()
+                .id(equipamentoId)
+                .horasOperacaoAcumuladas(200)
+                .build();
+
+        when(equipamentoRepository.findByIdComLinhaProducao(equipamentoId)).thenReturn(Optional.of(existente));
+
+        assertThatThrownBy(() -> equipamentoService.atualizarHorasOperacao(equipamentoId, 150))
+                .isInstanceOf(HorometroRetrocessoException.class);
+    }
+
+    @Test
+    void deveAtualizarTempoCicloIdeal() {
+        // US28 (Dashboard de OEE)
+        UUID equipamentoId = UUID.randomUUID();
+        Equipamento existente = Equipamento.builder().id(equipamentoId).build();
+
+        when(equipamentoRepository.findByIdComLinhaProducao(equipamentoId)).thenReturn(Optional.of(existente));
+        when(equipamentoRepository.save(any(Equipamento.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Equipamento atualizado = equipamentoService.atualizarTempoCicloIdeal(equipamentoId, 42);
+
+        assertThat(atualizado.getTempoCicloIdealSegundos()).isEqualTo(42);
     }
 }

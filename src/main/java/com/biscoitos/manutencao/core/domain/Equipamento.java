@@ -47,4 +47,7 @@ public class Equipamento {
     /** Preparado para o módulo de Manutenção Preventiva (Fase 2). */
     @Builder.Default
     private Integer horasOperacaoAcumuladas = 0;
+
+    /** Nullable — sem isso, o Dashboard não consegue calcular Performance (Sprint 6). */
+    private Integer tempoCicloIdealSegundos;
 }
