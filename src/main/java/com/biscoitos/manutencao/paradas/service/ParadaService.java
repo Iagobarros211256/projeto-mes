@@ -14,6 +14,7 @@ import com.biscoitos.manutencao.paradas.repository.MotivoParadaRepository;
 import com.biscoitos.manutencao.paradas.repository.ParadaRepository;
 import com.biscoitos.manutencao.paradas.repository.ParadaSpecifications;
 import com.biscoitos.manutencao.paradas.repository.TempoParadoPorEquipamento;
+import com.biscoitos.manutencao.paradas.repository.TempoParadoPorMotivo;
 import com.biscoitos.manutencao.paradas.service.exception.IntervaloInvalidoException;
 import com.biscoitos.manutencao.paradas.service.exception.ParadaEmAbertoException;
 import com.biscoitos.manutencao.paradas.service.exception.ParadaJaEncerradaException;
@@ -179,5 +180,28 @@ public class ParadaService {
     public Parada buscarPorId(UUID id) {
         return paradaRepository.buscarComRelacionamentosPorId(id)
                 .orElseThrow(() -> new EntidadeNaoEncontradaException("Parada", id));
+    }
+
+    /** US29 (Dashboard de OEE). equipamentoId/dataInicio/dataFim sempre concretos — quem
+     * chama (DashboardService) exige o período explícito, é o próprio "tempo planejado". */
+    public long tempoParadoDoEquipamentoNoPeriodo(UUID equipamentoId, Instant dataInicio, Instant dataFim) {
+        return paradaRepository.somarTempoParadoDoEquipamentoNoPeriodo(
+                StatusParada.ENCERRADA, equipamentoId, dataInicio, dataFim);
+    }
+
+    /**
+     * US30. Mesmo padrão de sentinela da US10 pras datas. equipamentoId nulo = ranking
+     * de todos os equipamentos (usa o método sem filtro); informado = escopado a um só
+     * (método separado, não parâmetro opcional — evita reintroduzir "IS NULL" na query).
+     */
+    public List<TempoParadoPorMotivo> principaisCausasParada(UUID equipamentoId, Instant dataInicio, Instant dataFim) {
+        Instant inicioEfetivo = dataInicio != null ? dataInicio : Instant.EPOCH;
+        Instant fimEfetivo = dataFim != null ? dataFim : Instant.now();
+
+        if (equipamentoId != null) {
+            return paradaRepository.buscarTempoTotalParadoPorMotivoDoEquipamento(
+                    StatusParada.ENCERRADA, equipamentoId, inicioEfetivo, fimEfetivo);
+        }
+        return paradaRepository.buscarTempoTotalParadoPorMotivo(StatusParada.ENCERRADA, inicioEfetivo, fimEfetivo);
     }
 }

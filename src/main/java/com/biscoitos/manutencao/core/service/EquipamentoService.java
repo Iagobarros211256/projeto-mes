@@ -94,4 +94,14 @@ public class EquipamentoService {
         equipamento.setHorasOperacaoAcumuladas(novasHoras);
         return equipamentoRepository.save(equipamento);
     }
+
+    /** US28 (Dashboard de OEE). Sem validação de negócio além do @Positive no DTO — é
+     * um parâmetro de engenharia, não um contador que possa "retroceder". */
+    @Transactional
+    public Equipamento atualizarTempoCicloIdeal(UUID id, int segundos) {
+        Equipamento equipamento = equipamentoRepository.findByIdComLinhaProducao(id)
+                .orElseThrow(() -> new EntidadeNaoEncontradaException("Equipamento", id));
+        equipamento.setTempoCicloIdealSegundos(segundos);
+        return equipamentoRepository.save(equipamento);
+    }
 }

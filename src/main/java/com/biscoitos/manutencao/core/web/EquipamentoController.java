@@ -3,6 +3,7 @@ package com.biscoitos.manutencao.core.web;
 import com.biscoitos.manutencao.core.domain.Equipamento;
 import com.biscoitos.manutencao.core.service.EquipamentoService;
 import com.biscoitos.manutencao.core.web.dto.AtualizarHorasOperacaoRequest;
+import com.biscoitos.manutencao.core.web.dto.AtualizarTempoCicloIdealRequest;
 import com.biscoitos.manutencao.core.web.dto.EquipamentoRequest;
 import com.biscoitos.manutencao.core.web.dto.EquipamentoResponse;
 import com.biscoitos.manutencao.core.web.dto.EquipamentoUpdateRequest;
@@ -66,5 +67,13 @@ public class EquipamentoController {
     public EquipamentoResponse atualizarHorasOperacao(@PathVariable UUID id,
                                                        @Valid @RequestBody AtualizarHorasOperacaoRequest request) {
         return EquipamentoResponse.from(equipamentoService.atualizarHorasOperacao(id, request.horas()));
+    }
+
+    /** US28 (Dashboard de OEE). */
+    @PatchMapping("/{id}/tempo-ciclo-ideal")
+    @PreAuthorize("hasRole('GESTOR')")
+    public EquipamentoResponse atualizarTempoCicloIdeal(@PathVariable UUID id,
+                                                         @Valid @RequestBody AtualizarTempoCicloIdealRequest request) {
+        return EquipamentoResponse.from(equipamentoService.atualizarTempoCicloIdeal(id, request.segundos()));
     }
 }

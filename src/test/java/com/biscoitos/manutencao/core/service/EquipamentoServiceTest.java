@@ -168,4 +168,18 @@ class EquipamentoServiceTest {
         assertThatThrownBy(() -> equipamentoService.atualizarHorasOperacao(equipamentoId, 150))
                 .isInstanceOf(HorometroRetrocessoException.class);
     }
+
+    @Test
+    void deveAtualizarTempoCicloIdeal() {
+        // US28 (Dashboard de OEE)
+        UUID equipamentoId = UUID.randomUUID();
+        Equipamento existente = Equipamento.builder().id(equipamentoId).build();
+
+        when(equipamentoRepository.findByIdComLinhaProducao(equipamentoId)).thenReturn(Optional.of(existente));
+        when(equipamentoRepository.save(any(Equipamento.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Equipamento atualizado = equipamentoService.atualizarTempoCicloIdeal(equipamentoId, 42);
+
+        assertThat(atualizado.getTempoCicloIdealSegundos()).isEqualTo(42);
+    }
 }

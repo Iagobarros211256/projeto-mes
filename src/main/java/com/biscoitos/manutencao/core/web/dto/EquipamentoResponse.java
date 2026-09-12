@@ -12,7 +12,8 @@ public record EquipamentoResponse(
         String status,
         UUID linhaProducaoId,
         String linhaProducaoNome,
-        Integer horasOperacaoAcumuladas
+        Integer horasOperacaoAcumuladas,
+        Integer tempoCicloIdealSegundos
 ) {
     public static EquipamentoResponse from(Equipamento equipamento) {
         return new EquipamentoResponse(
@@ -23,7 +24,8 @@ public record EquipamentoResponse(
                 equipamento.getStatus().name(),
                 equipamento.getLinhaProducao().getId(),
                 equipamento.getLinhaProducao().getNome(),
-                equipamento.getHorasOperacaoAcumuladas()
+                equipamento.getHorasOperacaoAcumuladas(),
+                equipamento.getTempoCicloIdealSegundos()
         );
     }
 }
